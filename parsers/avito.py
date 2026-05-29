@@ -14,14 +14,28 @@ from utils import progress
 SOURCE = "Авито"
 
 CITIES = [
-    ("simferopol",   "Симферополь"),
-    ("yalta",        "Ялта"),
-    ("sevastopol",   "Севастополь"),
-    ("evpatoriya",   "Евпатория"),
-    ("feodosiya",    "Феодосия"),
-    ("kerch",        "Керчь"),
-    ("alushta",      "Алушта"),
-    ("respublika_krym", "Крым"),
+    # Крым
+    ("simferopol",       "Симферополь"),
+    ("yalta",            "Ялта"),
+    ("sevastopol",       "Севастополь"),
+    ("evpatoriya",       "Евпатория"),
+    ("feodosiya",        "Феодосия"),
+    ("kerch",            "Керчь"),
+    ("alushta",          "Алушта"),
+    ("dzhankoy",         "Джанкой"),
+    ("armyansk",         "Армянск"),
+    ("respublika_krym",  "Крым"),
+    # Запорожская область
+    ("melitopol",            "Мелитополь"),
+    ("berdyansk",            "Бердянск"),
+    ("energodar",            "Энергодар"),
+    ("zaporozhskaya_oblast", "Запорожская обл."),
+    # Херсонская область
+    ("genichesk",            "Геническ"),
+    ("skadovsk",             "Скадовск"),
+    ("kahovka",              "Каховка"),
+    ("novaya_kahovka",       "Новая Каховка"),
+    ("khersonskaya_oblast",  "Херсонская обл."),
 ]
 
 SEARCH_QUERIES = [
