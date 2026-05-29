@@ -20,8 +20,8 @@ TG_CHAT_ID="-1003554068532"
 # ── Вывод в лог и на экран одновременно ──────────────
 exec > >(tee -a "$LOG") 2>&1
 
-set -euo pipefail
-trap 'tg_send "❌ Установка упала на строке $LINENO. Смотри лог: $LOG"' ERR
+set -uo pipefail
+trap 'tg_send "❌ Установка упала на строке $LINENO. Смотри лог: cat $LOG"' ERR
 
 # ── Telegram-уведомления ──────────────────────────────
 tg_send() {
@@ -44,17 +44,36 @@ tg_send "🚀 <b>HVAC-парсер</b> — начало установки на 
 echo ""
 echo "[1/8] Обновляем систему и устанавливаем пакеты..."
 export DEBIAN_FRONTEND=noninteractive
+
 apt-get update -qq
-apt-get upgrade -y -qq
-apt-get install -y -qq \
-    python3 python3-pip python3-venv \
-    git curl wget \
-    xvfb xauth \
-    libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
-    libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
-    libxfixes3 libxrandr2 libgbm1 libasound2 \
-    ca-certificates fonts-liberation \
-    2>/dev/null
+apt-get upgrade -y -qq 2>/dev/null || true
+
+# Обязательные пакеты — без них ничего не работает
+REQUIRED="python3 git curl wget ca-certificates"
+echo "   Устанавливаем обязательные: $REQUIRED"
+apt-get install -y -qq $REQUIRED
+
+# python3-pip — пробуем, если нет — поставим через get-pip.py позже
+apt-get install -y -qq python3-pip 2>/dev/null || true
+apt-get install -y -qq python3-venv 2>/dev/null || true
+
+# xvfb для headless-браузера
+apt-get install -y -qq xvfb xauth 2>/dev/null || true
+
+# Chromium/Playwright системные зависимости — каждый пакет отдельно
+# чтобы один неизвестный пакет не валил весь шаг
+CHROME_DEPS="libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+    libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+    libgbm1 libpango-1.0-0 libcairo2 fonts-liberation"
+for pkg in $CHROME_DEPS; do
+    apt-get install -y -qq "$pkg" 2>/dev/null || echo "   ⚠ $pkg — не найден, пропуск"
+done
+
+# libasound2 — на Ubuntu 24.04 переименован в libasound2t64
+apt-get install -y -qq libasound2t64 2>/dev/null \
+    || apt-get install -y -qq libasound2 2>/dev/null \
+    || echo "   ⚠ libasound2 — не найден, пропуск"
+
 echo "   ✓ системные пакеты установлены"
 tg_send "✅ Шаг 1/8 — системные пакеты установлены"
 
