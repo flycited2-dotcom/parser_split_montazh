@@ -3,6 +3,7 @@ import os
 import re
 from datetime import datetime
 from utils.categories import normalize as normalize_category
+from utils.categories import is_hotel_junk
 from utils import dedup, progress
 
 FIELDS = [
@@ -49,6 +50,11 @@ def save_item(item):
     global _rows
     if not item.get("name"):
         return False
+
+    # Отсекаем отели/гостиницы/базы отдыха (по названию)
+    if is_hotel_junk(item.get("name", "")):
+        return False
+
     k = _key(item)
 
     if k in _seen:

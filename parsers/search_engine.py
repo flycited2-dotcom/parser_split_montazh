@@ -31,11 +31,15 @@ QUERY_MATRIX = [
     ("холодильное оборудование","Крым",         "промхолод"),
     ("климатическое оборудование Крым", "",     "продажа+монтаж"),
     ("сплит системы Крым установка",    "",     "монтаж"),
+    ("чистка кондиционеров",            "Симферополь", "ремонт"),
+    ("чистка кондиционеров",            "Ялта",        "ремонт"),
+    ("обслуживание кондиционеров",      "Крым",        "ремонт"),
+    ("срочный монтаж кондиционеров",    "Крым",        "монтаж"),
 ]
 
 AGGREGATORS = {
     "avito.ru", "youla.ru", "farpost.ru", "irr.ru", "olx.ru",
-    "booking.com", "yandex.ru", "google.com", "google.ru",
+    "booking.com", "yandex.ru", "google.com", "google.ru", "bing.com",
     "vk.com", "ok.ru", "instagram.com", "facebook.com", "t.me",
     "2gis.ru", "zoon.ru", "yell.ru", "flamp.ru",
     "blizko.ru", "flagma.ru", "tiu.ru", "pulscen.ru",

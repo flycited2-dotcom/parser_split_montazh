@@ -57,7 +57,33 @@ QUERIES = [
     "заправка кондиционеров",
     "холодильное оборудование",
     "промышленный холод",
+    # добавленные ключевые фразы
+    "чистка кондиционеров",
+    "обслуживание кондиционеров",
+    "срочный монтаж кондиционеров",
+    "монтаж кондиционеров сегодня",
 ]
+
+# Города/маркеры Крыма для гео-фильтра (нижний регистр)
+CRIMEA_MARKERS = (
+    "крым", "симферополь", "ялта", "севастополь", "евпатория", "феодосия",
+    "керчь", "алушта", "судак", "саки", "бахчисарай", "коктебель", "гурзуф",
+    "партенит", "симеиз", "алупка", "ливадия", "массандра", "мисхор", "форос",
+    "балаклава", "черноморское", "николаевка", "орджоникидзе", "щёлкино",
+    "щелкино", "морское", "малореченское", "красногвардейское", "джанкой",
+    "армянск", "красноперекопск", "белогорск", "старый крым", "советский",
+    "кировское", "нижнегорский", "первомайское", "раздольное", "ленино",
+    "приморский", "береговое", "кастрополь",
+)
+
+
+def _is_crimea(city: str, name: str, description: str) -> bool:
+    """True, если запись относится к Крыму (по городу или упоминанию в тексте)."""
+    low_city = (city or "").lower()
+    if any(m in low_city for m in CRIMEA_MARKERS):
+        return True
+    text = (name + " " + description).lower()
+    return "крым" in text
 
 EMAIL_RE = re.compile(r"[a-zA-Z0-9._\%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
 EMAIL_BLOCKLIST = ("noreply", "no-reply", "example.", "@vk.com", "@vkontakte")
@@ -221,6 +247,12 @@ async def run(context):
             city_obj = g.get("city") or {}
             city = (city_obj.get("title") if isinstance(city_obj, dict) else "") \
                 or found.get(gid, "Крым")
+
+            # Гео-фильтр: только Крым (отсекаем Москву, Воронеж и т.п.)
+            if not _is_crimea(city, name, desc):
+                skipped += 1
+                continue
+
             screen = g.get("screen_name") or f"club{gid}"
             social = f"https://vk.com/{screen}"
 
@@ -237,7 +269,9 @@ async def run(context):
             elif any(w in low for w in ("монтаж", "установк", "install")):
                 category = "монтаж"
             else:
-                category = activity or "климатическое оборудование"
+                # группа уже прошла _is_relevant (HVAC по смыслу) —
+                # дефолт «продажа+монтаж», а не сырой VK-activity
+                category = "продажа+монтаж"
 
             if save_item({
                 "city":      city,

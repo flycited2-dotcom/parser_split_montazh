@@ -25,6 +25,8 @@ QUERIES = [
     "ремонт кондиционеров",
     "климатическое оборудование",
     "холодильное оборудование",
+    "чистка кондиционеров",
+    "обслуживание кондиционеров",
 ]
 
 # Общекрымские запросы без привязки к городу
@@ -109,20 +111,24 @@ async def _search_yandex_maps(context, search_query: str, city: str) -> int:
 
         for snippet in snippets:
             try:
-                # Извлекаем название
-                title_el = await snippet.query_selector(".search-snippet-view__title")
+                # Извлекаем название (актуальный класс Яндекс.Карт)
+                title_el = await snippet.query_selector(
+                    ".search-business-snippet-view__title"
+                ) or await snippet.query_selector(".search-snippet-view__title")
                 name = (await title_el.inner_text() if title_el else "").strip()
                 if not name:
                     continue
 
-                # Извлекаем адрес
-                addr_el = await snippet.query_selector(".search-snippet-view__address")
+                # Адрес из сниппета (если есть)
+                addr_el = await snippet.query_selector(
+                    ".search-business-snippet-view__address"
+                ) or await snippet.query_selector(".search-snippet-view__address")
                 address = (await addr_el.inner_text() if addr_el else "").strip()
                 detected_city = city or _detect_city_from_address(address)
 
                 # Открываем карточку
                 await snippet.click()
-                await page.wait_for_timeout(1500)
+                await page.wait_for_timeout(1800)
 
                 # Ждём sidebar
                 try:
@@ -133,29 +139,38 @@ async def _search_yandex_maps(context, search_query: str, city: str) -> int:
                 phone = ""
                 website = ""
 
-                # Телефон
-                phone_el = await page.query_selector("a[href^='tel:']")
-                if phone_el:
-                    href = await phone_el.get_attribute("href") or ""
-                    phone = _normalize_phone(href.replace("tel:", ""))
-
-                # Если телефон скрыт — нажимаем «Показать»
-                if not phone:
-                    show_btn = await page.query_selector(".card-phones-view__more")
-                    if show_btn:
+                # Телефон: раскрываем кнопкой, читаем ТЕКСТ (не tel:-ссылка)
+                show_btn = await page.query_selector(".card-phones-view__more")
+                if show_btn:
+                    try:
                         await show_btn.click()
-                        await page.wait_for_timeout(800)
-                        phone_el2 = await page.query_selector("a[href^='tel:']")
-                        if phone_el2:
-                            href = await phone_el2.get_attribute("href") or ""
-                            phone = _normalize_phone(href.replace("tel:", ""))
+                        await page.wait_for_timeout(700)
+                    except Exception:
+                        pass
+                phone_el = (
+                    await page.query_selector(".card-phones-view__phone")
+                    or await page.query_selector(".card-phones-view__number")
+                    or await page.query_selector("a[href^='tel:']")
+                )
+                if phone_el:
+                    raw = (await phone_el.inner_text() or "").strip()
+                    if not raw:
+                        raw = (await phone_el.get_attribute("href") or "")
+                    phone = _normalize_phone(raw.replace("tel:", ""))
 
-                # Сайт
+                # Адрес из карточки (точнее сниппета)
+                addr_card = await page.query_selector(".business-contacts-view__address")
+                if addr_card:
+                    address = (await addr_card.inner_text()).strip() or address
+
+                # Сайт (обрезаем tracking-параметры)
                 link_el = await page.query_selector(
-                    "a.card-links-view__link[href^='http']:not([href*='yandex'])"
+                    ".business-urls-view__link"
+                ) or await page.query_selector(
+                    "a[class*='business-urls'][href^='http']:not([href*='yandex'])"
                 )
                 if link_el:
-                    website = await link_el.get_attribute("href") or ""
+                    website = (await link_el.get_attribute("href") or "").split("?")[0]
 
                 category = _category_from_query(search_query)
 
