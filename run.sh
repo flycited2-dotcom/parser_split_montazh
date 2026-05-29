@@ -10,10 +10,17 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
+# venv-питон если есть, иначе системный python3
+if [ -x "venv/bin/python" ]; then
+  PY="venv/bin/python"
+else
+  PY="python3"
+fi
+
 # Запускаем через xvfb-run (виртуальный дисплей, нужен на сервере без GUI)
 if command -v xvfb-run &>/dev/null && [ "${HEADLESS:-1}" != "0" ]; then
   exec xvfb-run --auto-servernum --server-args="-screen 0 1366x768x24" \
-    python main.py "$@"
+    "$PY" main.py "$@"
 else
-  exec python main.py "$@"
+  exec "$PY" main.py "$@"
 fi

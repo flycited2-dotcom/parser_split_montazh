@@ -78,26 +78,18 @@ echo "   ✓ системные пакеты готовы"
 tg_send "✅ Шаг 1/8 — системные пакеты установлены"
 
 # ════════════════════════════════════════════════════
-# ШАГ 2: pip
+# ШАГ 2: venv-инструменты
+# (Ubuntu 24.04 запрещает системный pip — PEP 668 / externally-managed.
+#  Поэтому ставим всё в venv, создаём его после клона кода в шаге 5.)
 # ════════════════════════════════════════════════════
 echo ""
-echo "[2/8] Настраиваем pip..."
+echo "[2/8] Проверяем инструменты для venv..."
 
-if command -v pip3 &>/dev/null; then
-    PIP="pip3"
-elif python3 -m pip --version &>/dev/null 2>&1; then
-    PIP="python3 -m pip"
-else
-    echo "   pip не найден, скачиваем get-pip.py..."
-    curl -s https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py \
-        && python3 /tmp/get-pip.py -q \
-        || die "Не удалось установить pip"
-    PIP="python3 -m pip"
+if ! python3 -m venv --help &>/dev/null; then
+    apt-get install -y -qq python3-venv 2>/dev/null \
+        || die "python3-venv недоступен — venv создать нельзя"
 fi
-
-$PIP install -q --upgrade pip setuptools wheel 2>/dev/null || true
-PYTHON="python3"
-echo "   ✓ $($PIP --version 2>/dev/null || echo 'pip OK')"
+echo "   ✓ python3 -m venv доступен"
 
 # ════════════════════════════════════════════════════
 # ШАГ 3: Код
@@ -147,10 +139,21 @@ grep -v "^#" .env | grep -v "^$" | sed 's/\(TOKEN=\).\{8\}.*/\1***/' || true
 tg_send "✅ Шаг 4/8 — .env настроен"
 
 # ════════════════════════════════════════════════════
-# ШАГ 5: Python-зависимости
+# ШАГ 5: venv + Python-зависимости
 # ════════════════════════════════════════════════════
 echo ""
-echo "[5/8] Устанавливаем Python-пакеты..."
+echo "[5/8] Создаём venv и устанавливаем Python-пакеты..."
+
+VENV="$PARSER_DIR/venv"
+if [ ! -d "$VENV" ]; then
+    python3 -m venv "$VENV" || die "Не удалось создать venv в $VENV"
+    echo "   ✓ venv создан: $VENV"
+else
+    echo "   ✓ venv уже существует: $VENV"
+fi
+PIP="$VENV/bin/pip"
+PYTHON="$VENV/bin/python"
+$PIP install -q --upgrade pip setuptools wheel 2>/dev/null || true
 
 # Сначала пробуем всё сразу с --prefer-binary (не требует компилятора)
 if $PIP install -q --prefer-binary -r requirements.txt 2>/tmp/pip_err.txt; then

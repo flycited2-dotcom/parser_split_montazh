@@ -183,7 +183,7 @@ def _fetch_overpass() -> list:
             with urlopen(req, timeout=150) as r:
                 data = json.loads(r.read().decode("utf-8"))
                 return data.get("elements", [])
-        except (URLError, HTTPError, json.JSONDecodeError) as e:
+        except (URLError, HTTPError, TimeoutError, json.JSONDecodeError) as e:
             print(f" [OSM] {url} fail: {e}")
             last_err = e
             continue

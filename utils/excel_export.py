@@ -72,7 +72,7 @@ def _read_csv(path: str) -> list[dict]:
 
 
 def _safe_sheet_name(name: str) -> str:
-    bad = set(":\\/?\*[]")
+    bad = set(r":\/?*[]")
     out = "".join(" " if c in bad else c for c in name)
     return out.strip()[:31] or "Лист"
 
