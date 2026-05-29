@@ -56,7 +56,7 @@ apt-get update -qq 2>/dev/null || true
 apt-get upgrade -y -qq 2>/dev/null || true
 
 # Обязательные — без них дальше не идём
-apt-get install -y -qq python3 git curl wget ca-certificates 2>/dev/null \
+apt-get install -y -qq python3 python3-dev git curl wget ca-certificates gcc g++ 2>/dev/null \
     || die "Не удалось установить базовые пакеты (python3 git curl)"
 
 # Опциональные — пропускаем если нет
@@ -151,9 +151,36 @@ tg_send "✅ Шаг 4/8 — .env настроен"
 # ════════════════════════════════════════════════════
 echo ""
 echo "[5/8] Устанавливаем Python-пакеты..."
-$PIP install -q -r requirements.txt \
-    || die "pip install -r requirements.txt не прошёл"
-echo "   ✓ requirements.txt установлен"
+
+# Сначала пробуем всё сразу с --prefer-binary (не требует компилятора)
+if $PIP install -q --prefer-binary -r requirements.txt 2>/tmp/pip_err.txt; then
+    echo "   ✓ все пакеты установлены"
+else
+    echo "   ⚠ общая установка не прошла, ставим по одному..."
+    FAILED=""
+    while IFS= read -r pkg; do
+        # пропускаем пустые строки и комментарии
+        [[ -z "$pkg" || "$pkg" == \#* ]] && continue
+        pkg_name=$(echo "$pkg" | sed 's/[>=<].*//')
+        if $PIP install -q --prefer-binary "$pkg" 2>/dev/null; then
+            echo "   ✓ $pkg_name"
+        else
+            echo "   ✗ $pkg_name — ОШИБКА"
+            FAILED="$FAILED $pkg_name"
+        fi
+    done < requirements.txt
+
+    if [ -n "$FAILED" ]; then
+        tg_send "⚠️ Не установились пакеты:${FAILED}&#10;Лог: <code>cat /tmp/pip_err.txt</code>"
+        echo "   Не установились:$FAILED"
+    fi
+fi
+
+# Проверяем критически важные импорты
+$PYTHON -c "import dotenv, openpyxl, playwright" 2>/dev/null \
+    && echo "   ✓ ключевые пакеты импортируются" \
+    || die "Критические пакеты не установились: $(cat /tmp/pip_err.txt 2>/dev/null | tail -5)"
+
 tg_send "✅ Шаг 5/8 — Python-зависимости установлены"
 
 # ════════════════════════════════════════════════════
