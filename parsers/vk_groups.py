@@ -110,7 +110,9 @@ def _is_target_region(city: str, name: str, description: str) -> bool:
     if any(m in low_city for m in TARGET_MARKERS):
         return True
     text = (name + " " + description).lower()
-    return any(m in text for m in ("крым", "запорож", "херсон", "таврия"))
+    # "запорожск"/"херсонск" — чтобы ловить «Запорожская/Херсонская обл.» и районы,
+    # но НЕ сами города Запорожье и Херсон (они вне нашей географии).
+    return any(m in text for m in ("крым", "запорожск", "херсонск", "таврия"))
 
 
 # Бэкомпат для прежнего имени
