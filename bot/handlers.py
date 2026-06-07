@@ -393,20 +393,70 @@ def cmd_region(token, chat_id, args):
     _send(token, chat_id, "\n".join(lines))
 
 
+def _latest_result_csv() -> str | None:
+    """Свежий инкрементальный result_*.csv (парсер пишет туда по ходу прогона)."""
+    import glob
+    files = sorted(glob.glob(f"{OUTPUT_DIR}/result_*.csv"))
+    return files[-1] if files else None
+
+
+def _count_rows(csv_path: str) -> int:
+    try:
+        with open(csv_path, encoding="utf-8-sig") as f:
+            return sum(1 for _ in f) - 1   # минус заголовок
+    except Exception:
+        return 0
+
+
 def cmd_xlsx(token, chat_id, args):
-    if not os.path.exists(MASTER_XLSX):
-        _send(token, chat_id, "<code>master_all.xlsx</code> ещё не сформирован.")
+    # Готовый мастер-файл (после завершения прогона)
+    if os.path.exists(MASTER_XLSX):
+        rows = _load_csv()
+        _send_doc(token, chat_id, MASTER_XLSX,
+                  caption=f"master_all.xlsx ({len(rows)} записей)")
         return
-    rows = _load_csv()
-    _send_doc(token, chat_id, MASTER_XLSX, caption=f"master_all.xlsx ({len(rows)} записей)")
+    # Прогон идёт — генерим xlsx из последнего result_*.csv на лету
+    src = _latest_result_csv()
+    if not src:
+        _send(token, chat_id, "Записей пока нет — даже промежуточного файла.")
+        return
+    cnt = _count_rows(src)
+    try:
+        import sys
+        if PARSER_DIR not in sys.path:
+            sys.path.insert(0, PARSER_DIR)
+        from utils.excel_export import build_xlsx
+        tmp_xlsx = f"{OUTPUT_DIR}/_partial_{int(time.time())}.xlsx"
+        result = build_xlsx(src, tmp_xlsx)
+        if not result or not os.path.exists(tmp_xlsx):
+            _send(token, chat_id, "Не получилось собрать промежуточный xlsx.")
+            return
+        _send_doc(token, chat_id, tmp_xlsx,
+                  caption=f"⏳ Промежуточный xlsx ({cnt} записей, прогон идёт). "
+                          f"Финальный придёт после окончания.")
+        try:
+            os.remove(tmp_xlsx)
+        except OSError:
+            pass
+    except Exception as e:
+        _send(token, chat_id, f"❌ Сборка xlsx упала: <code>{e}</code>")
 
 
 def cmd_csv(token, chat_id, args):
-    if not os.path.exists(MASTER_CSV):
-        _send(token, chat_id, "<code>master_all.csv</code> ещё не сформирован.")
+    if os.path.exists(MASTER_CSV):
+        rows = _load_csv()
+        _send_doc(token, chat_id, MASTER_CSV,
+                  caption=f"master_all.csv ({len(rows)} записей)")
         return
-    rows = _load_csv()
-    _send_doc(token, chat_id, MASTER_CSV, caption=f"master_all.csv ({len(rows)} записей)")
+    # Прогон идёт — отдаём последний инкрементальный CSV
+    src = _latest_result_csv()
+    if not src:
+        _send(token, chat_id, "Записей пока нет.")
+        return
+    cnt = _count_rows(src)
+    _send_doc(token, chat_id, src,
+              caption=f"⏳ Промежуточный {os.path.basename(src)} "
+                      f"({cnt} записей, прогон идёт).")
 
 
 def _spawn_parser(env_overrides: dict | None = None) -> None:
