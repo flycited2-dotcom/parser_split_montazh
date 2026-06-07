@@ -14,8 +14,19 @@ HOTELS_TOKEN="/home/crimea_parser/token.json"
 SERVICE_NAME="hvac_parser"
 LOG="/tmp/hvac_setup.log"
 
-TG_BOT_TOKEN="8690586646:AAHnUuylar9uhYhHVuPt6Dt3mZiW7Zyweng"
-TG_CHAT_ID="-1003554068532"
+# Не-секретные дефолты, специфичные для HVAC-парсера. Можно перебить env-переменной.
+GDRIVE_FOLDER_ID_DEFAULT="${GDRIVE_FOLDER_ID:-1h5i0uPkmScGRKufGXEc1qu0pWyWioqax}"
+
+# Не хардкодим — токен в публичном репо Telegram автоматически отзывает.
+# При reinstall тянем из существующего .env. На фреш-инсталле можно
+# передать env-переменными: TG_BOT_TOKEN=xxx TG_CHAT_ID=yyy bash setup.sh.
+# Если пусто — установка отработает, но без Telegram-прогресса (только лог).
+TG_BOT_TOKEN="${TG_BOT_TOKEN:-}"
+TG_CHAT_ID="${TG_CHAT_ID:-}"
+if [ -z "$TG_BOT_TOKEN" ] && [ -f "/home/hvac_parser/.env" ]; then
+    TG_BOT_TOKEN=$(grep "^TG_BOT_TOKEN=" /home/hvac_parser/.env 2>/dev/null | cut -d= -f2-)
+    TG_CHAT_ID=$(grep "^TG_CHAT_ID=" /home/hvac_parser/.env 2>/dev/null | cut -d= -f2-)
+fi
 
 # Без set -e и без ERR-trap — управляем ошибками вручную
 exec > >(tee -a "$LOG") 2>&1
@@ -132,6 +143,21 @@ fi
 if [ -f "$HOTELS_TOKEN" ]; then
     sed -i "s|^GDRIVE_TOKEN=.*|GDRIVE_TOKEN=${HOTELS_TOKEN}|" .env
     echo "   ✓ GDRIVE_TOKEN → $HOTELS_TOKEN"
+fi
+
+# TG-токены и Drive folder id — впишем, если есть в окружении
+# (или подтянуты из существующего .env при reinstall).
+if [ -n "$TG_BOT_TOKEN" ]; then
+    sed -i "s|^TG_BOT_TOKEN=.*|TG_BOT_TOKEN=${TG_BOT_TOKEN}|" .env
+    echo "   ✓ TG_BOT_TOKEN установлен"
+fi
+if [ -n "$TG_CHAT_ID" ]; then
+    sed -i "s|^TG_CHAT_ID=.*|TG_CHAT_ID=${TG_CHAT_ID}|" .env
+    echo "   ✓ TG_CHAT_ID установлен"
+fi
+if [ -n "$GDRIVE_FOLDER_ID_DEFAULT" ]; then
+    sed -i "s|^GDRIVE_FOLDER_ID=.*|GDRIVE_FOLDER_ID=${GDRIVE_FOLDER_ID_DEFAULT}|" .env
+    echo "   ✓ GDRIVE_FOLDER_ID установлен"
 fi
 
 echo "   .env содержимое:"

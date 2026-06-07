@@ -151,6 +151,36 @@ utils/
 
 ---
 
+## Секреты и токены
+
+**Правило: никаких реальных токенов в репозитории, ни в `.env.example`, ни в `setup.sh`.**
+Telegram (и иногда VK/Google) автоматически сканируют публичный GitHub и **сами
+отзывают** засветившиеся токены. Это уже случалось — 5 июня Telegram погасил
+`TG_BOT_TOKEN`, бот висел в 401 пока не дали новый.
+
+**Где сейчас живут реальные значения:**
+- На сервере: `/home/hvac_parser/.env` (gitignored).
+- На сервере у соседа: `/home/crimea_parser/.env` (gitignored).
+- VK_TOKEN и GDRIVE_TOKEN setup.sh подтягивает из крымско-парсерного `.env`/`token.json`.
+- TG_BOT_TOKEN и TG_CHAT_ID setup.sh берёт из env-переменных при запуске
+  (`TG_BOT_TOKEN=xxx bash setup.sh`) или из существующего HVAC `.env` при reinstall.
+- GDRIVE_FOLDER_ID — не секрет, хардкод дефолта в setup.sh (`GDRIVE_FOLDER_ID_DEFAULT`).
+
+**Если токен отозван:**
+1. `@BotFather` → `/mybots` → `parser_splity_bot` → API Token → Revoke → новый.
+2. SSH: подменить `TG_BOT_TOKEN=...` в `/home/hvac_parser/.env`.
+3. `systemctl restart hvac_bot.service`.
+4. `curl -s "https://api.telegram.org/bot$NEW_TOKEN/getMe"` — должно вернуть `ok:true`.
+
+Парсер при этом не нужно перезапускать — он сам подцепит новый токен на следующем
+запуске. Текущий идущий прогон молча проигнорирует фейл TG-notify, файл всё равно
+выгрузит в Drive.
+
+**История git хранит все старые токены** — кто-то их вытащит из старого коммита.
+Если важно — почистить через `git filter-repo` (требует force-push, рисково).
+
+---
+
 ## Инфраструктура
 
 - **Сервер:** sprintbox box-891610, `212.116.115.150`, СПб, Ubuntu 24.04,
