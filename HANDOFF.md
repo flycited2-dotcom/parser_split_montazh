@@ -156,27 +156,52 @@ utils/
 **Правило: никаких реальных токенов в репозитории, ни в `.env.example`, ни в `setup.sh`.**
 Telegram (и иногда VK/Google) автоматически сканируют публичный GitHub и **сами
 отзывают** засветившиеся токены. Это уже случалось — 5 июня Telegram погасил
-`TG_BOT_TOKEN`, бот висел в 401 пока не дали новый.
+`TG_BOT_TOKEN`, 7 июня Google истёк `token.json` (OAuth user-token).
 
 **Где сейчас живут реальные значения:**
 - На сервере: `/home/hvac_parser/.env` (gitignored).
 - На сервере у соседа: `/home/crimea_parser/.env` (gitignored).
-- VK_TOKEN и GDRIVE_TOKEN setup.sh подтягивает из крымско-парсерного `.env`/`token.json`.
+- VK_TOKEN setup.sh подтягивает из крымско-парсерного `.env`.
 - TG_BOT_TOKEN и TG_CHAT_ID setup.sh берёт из env-переменных при запуске
   (`TG_BOT_TOKEN=xxx bash setup.sh`) или из существующего HVAC `.env` при reinstall.
+- GDRIVE_TOKEN — путь к `/home/crimea_parser/token.json` (общий с парсером отелей).
 - GDRIVE_FOLDER_ID — не секрет, хардкод дефолта в setup.sh (`GDRIVE_FOLDER_ID_DEFAULT`).
 
-**Если токен отозван:**
+### Восстановление Telegram-бота (если ревоук)
+
 1. `@BotFather` → `/mybots` → `parser_splity_bot` → API Token → Revoke → новый.
 2. SSH: подменить `TG_BOT_TOKEN=...` в `/home/hvac_parser/.env`.
 3. `systemctl restart hvac_bot.service`.
 4. `curl -s "https://api.telegram.org/bot$NEW_TOKEN/getMe"` — должно вернуть `ok:true`.
 
-Парсер при этом не нужно перезапускать — он сам подцепит новый токен на следующем
-запуске. Текущий идущий прогон молча проигнорирует фейл TG-notify, файл всё равно
-выгрузит в Drive.
+Парсер не перезапускать — он сам подцепит новый токен на следующем запуске.
 
-**История git хранит все старые токены** — кто-то их вытащит из старого коммита.
+### Восстановление Google Drive-токена (`token.json` истёк)
+
+`gdrive.py` использует **OAuth user-token** (не service account). Если истёк
+(`invalid_grant: Token has been expired or revoked`):
+
+1. На сервере есть готовый OAuth Desktop client от соседнего проекта
+   `/root/climat-simf-qa-agent/secrets/google-oauth-client.json` (project
+   `otchety-testov-site`, scope `drive.file`). Удобно переиспользовать.
+2. Скачать на локальную машину (с браузером):
+   `scp -i ~/.ssh/climat_simf_deploy root@212.116.115.150:/root/climat-simf-qa-agent/secrets/google-oauth-client.json ./client_secrets.json`
+3. Запустить `python setup_gdrive_auth.py client_secrets.json` — скрипт поднимет
+   локальный сервер на свободном порту, напечатает URL. Открыть URL в браузере,
+   залогиниться **Google-аккаунтом владельца HVAC-папки Drive**, нажать Allow.
+   Создастся `token.json` с `refresh_token` — будет сам обновляться.
+4. Залить: `scp ... token.json root@212.116.115.150:/home/crimea_parser/token.json`
+   (заменяет старый, общий с парсером отелей).
+5. Проверка: `venv/bin/python -c "from utils.gdrive import upload_file;
+   print(upload_file('output/master_all.xlsx'))"`.
+
+**Замечание про эмодзи в Windows-консоли:** `setup_gdrive_auth.py` падает на
+финальном `print("✅ ...")` из-за cp1251. Это уже **после** записи `token.json`,
+ничего не повреждает. Просто игнорируй UnicodeEncodeError.
+
+### История git
+
+Старые токены в коммитах остаются доступны через `git log` — кто-то их вытащит.
 Если важно — почистить через `git filter-repo` (требует force-push, рисково).
 
 ---
