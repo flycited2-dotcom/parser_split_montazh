@@ -1,0 +1,26 @@
+# systemd-сервис моста Claude <-> Telegram (Linux).
+#
+# Установка (подставь своего пользователя и путь):
+#   sudo cp claude_bridge.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now claude_bridge.service
+# Логи:  journalctl -u claude_bridge -f
+
+[Unit]
+Description=Claude Code Telegram Bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# ВАЖНО: тот пользователь, под которым авторизован Claude Code (claude login).
+User=root
+WorkingDirectory=/home/hvac_parser/claude_bridge
+ExecStart=/usr/bin/python3 /home/hvac_parser/claude_bridge/bridge.py
+Restart=always
+RestartSec=5
+# PATH, чтобы нашёлся node/claude (дополни своим путём при необходимости)
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:/root/.local/bin
+
+[Install]
+WantedBy=multi-user.target

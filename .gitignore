@@ -9,3 +9,4 @@ venv/
 token.json
 client_secrets.json
 *.log
+claude_bridge/bridge_state.json
